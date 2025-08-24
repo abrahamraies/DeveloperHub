@@ -38,6 +38,9 @@ public class User : BaseEntity
 
 	public string? GitHubUrl { get; private set; }
 	public string? DiscordUrl { get; private set; }
+	public string? ProfileImageUrl { get; private set; }
+	public string? PasswordResetToken { get; private set; }
+	public DateTime? PasswordResetTokenExpiry { get; private set; }
 
 	public UserRole Role { get; private set; } = UserRole.User;
 
@@ -80,5 +83,31 @@ public class User : BaseEntity
 			newDiscordUrl = newDiscordUrl.Trim();
 
 		DiscordUrl = string.IsNullOrWhiteSpace(newDiscordUrl) ? null : newDiscordUrl;
+	}
+
+	public void ChangeProfileImageUrl(string? url)
+	{
+		if (url is not null)
+			url = url.Trim();
+
+		ProfileImageUrl = string.IsNullOrWhiteSpace(url) ? null : url;
+	}
+
+	public void SetPasswordResetToken(string token, DateTime expiry)
+	{
+		PasswordResetToken = token;
+		PasswordResetTokenExpiry = expiry;
+	}
+
+	public void ClearPasswordResetToken()
+	{
+		PasswordResetToken = null;
+		PasswordResetTokenExpiry = null;
+	}
+
+	public void UpdatePassword(string hashedPassword)
+	{
+		PasswordHash = hashedPassword;
+		ClearPasswordResetToken();
 	}
 }

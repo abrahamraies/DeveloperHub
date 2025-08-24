@@ -71,6 +71,9 @@ namespace DeveloperHub.Application.Services
 			if (updateUserDto.DiscordUrl is not null)
 				user.ChangeDiscordUrl(updateUserDto.DiscordUrl);
 
+			if (updateUserDto.ProfileImageUrl is not null)
+				user.ChangeProfileImageUrl(updateUserDto.ProfileImageUrl);
+
 			if (id != currentUserId && updateUserDto.Role is not null)
 			{
 				var currentUser = await _userRepository.GetByIdAsync(currentUserId);

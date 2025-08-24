@@ -30,9 +30,11 @@ namespace DeveloperHub.API.Controllers
 		[HttpGet]
 		public async Task<IActionResult> GetAll(
 			[FromQuery] int pageNumber = 1,
-			[FromQuery] int pageSize = 10)
+			[FromQuery] int pageSize = 10,
+			[FromQuery] string? search = null,
+			[FromQuery] List<string> tags = null!)
 		{
-			var result = await _projectService.GetPagedAsync(pageNumber, pageSize);
+			var result = await _projectService.GetPagedAsync(pageNumber, pageSize, search, tags ?? new List<string>());
 			return Ok(result);
 		}
 

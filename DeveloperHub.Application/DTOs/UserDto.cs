@@ -6,6 +6,7 @@
 		string Email,
 		string? GitHubUrl,
 		string? DiscordUrl,
+		string? ProfileImageUrl,
 		string Role
 	);
 }

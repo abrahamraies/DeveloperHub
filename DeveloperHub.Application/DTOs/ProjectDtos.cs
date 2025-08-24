@@ -31,9 +31,11 @@ namespace DeveloperHub.Application.DTOs
 	{
 		public Guid Id { get; init; }
 		public string Title { get; init; } = string.Empty;
+		public string Description { get; init; } = string.Empty;
 		public string OwnerUsername { get; init; } = string.Empty;
+		public string OwnerProfileImageUrl { get; init; } = string.Empty;
 		public DateTime CreatedAt { get; init; }
 		public int CommentCount { get; init; }
-		public List<string> Tags { get; init; } = new();
+		public List<string> Tags { get; init; } = [];
 	}
 }

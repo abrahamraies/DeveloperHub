@@ -7,7 +7,13 @@ namespace DeveloperHub.Domain.Interfaces.Repositories
 		Task<Project?> GetByIdAsync(Guid id);
 		Task<IEnumerable<Project>> GetByUserIdAsync(Guid userId);
 		Task<IEnumerable<Project>> GetByTagAsync(string tagName);
-		Task<IEnumerable<Project>> GetPagedListAsync(int pageNumber, int pageSize);
+		Task<IEnumerable<Project>> GetPagedListAsync(
+			int pageNumber,
+			int pageSize,
+			string? search = null,
+			List<string> tags = null!);
+
+		Task<int> GetTotalCountAsync(string? search = null, List<string> tags = null!);
 		Task AddAsync(Project project);
 		Task DeleteAsync(Project project);
 		Task UpdateAsync(Project project);

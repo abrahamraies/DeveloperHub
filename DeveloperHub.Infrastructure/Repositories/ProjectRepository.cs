@@ -39,16 +39,63 @@ namespace DeveloperHub.Infrastructure.Repositories
 				.ToListAsync();
 		}
 
-		public async Task<IEnumerable<Project>> GetPagedListAsync(int pageNumber, int pageSize)
+		public async Task<IEnumerable<Project>> GetPagedListAsync(
+			int pageNumber,
+			int pageSize,
+			string? search = null,
+			List<string> tags = null!)
 		{
-			return await _context.Projects
+			var query = _context.Projects
 				.Include(p => p.Owner)
+				.Include(p => p.Comments)
 				.Include(p => p.ProjectTags)
 					.ThenInclude(pt => pt.Tag)
+				.AsQueryable();
+
+			if (!string.IsNullOrWhiteSpace(search))
+			{
+				query = query.Where(p =>
+					p.Title.Contains(search) ||
+					p.Description.Contains(search));
+			}
+
+			if (tags != null && tags.Count != 0)
+			{
+				foreach (var tag in tags)
+				{
+					var tagUpper = tag.ToUpper();
+					query = query.Where(p => p.ProjectTags.Any(pt => pt.Tag.Name.ToUpper() == tagUpper));
+				}
+			}
+
+			return await query
 				.OrderByDescending(p => p.CreatedAt)
 				.Skip((pageNumber - 1) * pageSize)
 				.Take(pageSize)
 				.ToListAsync();
+		}
+
+		public async Task<int> GetTotalCountAsync(string? search = null, List<string> tags = null!)
+		{
+			var query = _context.Projects.AsQueryable();
+
+			if (!string.IsNullOrWhiteSpace(search))
+			{
+				query = query.Where(p =>
+					p.Title.Contains(search) ||
+					p.Description.Contains(search));
+			}
+
+			if (tags != null && tags.Count != 0)
+			{
+				foreach (var tag in tags)
+				{
+					var tagUpper = tag.ToUpper();
+					query = query.Where(p => p.ProjectTags.Any(pt => pt.Tag.Name.ToUpper() == tagUpper));
+				}
+			}
+
+			return await query.CountAsync();
 		}
 
 		public async Task AddAsync(Project project)

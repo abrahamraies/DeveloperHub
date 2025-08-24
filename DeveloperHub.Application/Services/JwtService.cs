@@ -18,7 +18,6 @@ namespace DeveloperHub.Application.Services
 			{
 			new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
 			new Claim(ClaimTypes.Email, user.Email),
-			new Claim(ClaimTypes.Name, user.Username),
 			new Claim(ClaimTypes.Role, user.Role.ToString())
 		};
 

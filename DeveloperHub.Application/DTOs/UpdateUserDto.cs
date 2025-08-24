@@ -7,6 +7,7 @@ namespace DeveloperHub.Application.DTOs
 		string? Email,
 		string? GitHubUrl,
 		string? DiscordUrl,
+		string? ProfileImageUrl,
 		UserRole? Role
 	);
 }

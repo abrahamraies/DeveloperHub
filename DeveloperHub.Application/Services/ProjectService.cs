@@ -52,10 +52,23 @@ namespace DeveloperHub.Application.Services
 			return _mapper.Map<IEnumerable<ProjectSummaryDto>>(projects);
 		}
 
-		public async Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(int pageNumber, int pageSize)
+		public async Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(
+			int pageNumber,
+			int pageSize,
+			string? search = null,
+			List<string> tags = null!)
 		{
-			var projects = await _projectRepository.GetPagedListAsync(pageNumber, pageSize);
-			var totalCount = await _projectRepository.GetTotalCountAsync();
+			pageNumber = pageNumber < 1 ? 1 : pageNumber;
+			pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
+
+			var projects = await _projectRepository.GetPagedListAsync(
+				pageNumber,
+				pageSize,
+				search,
+				tags ?? new List<string>()
+			);
+
+			var totalCount = await _projectRepository.GetTotalCountAsync(search, tags ?? new List<string>());
 
 			var projectDtos = _mapper.Map<List<ProjectSummaryDto>>(projects);
 			return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);

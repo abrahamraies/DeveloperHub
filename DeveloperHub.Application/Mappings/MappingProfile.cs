@@ -30,6 +30,7 @@ namespace DeveloperHub.Application.Mappings
 
 			CreateMap<Project, ProjectSummaryDto>()
 				.ForMember(dest => dest.OwnerUsername, opt => opt.MapFrom(src => src.Owner.Username))
+				.ForMember(dest => dest.OwnerProfileImageUrl, opt => opt.MapFrom(src => src.Owner.ProfileImageUrl))
 				.ForMember(dest => dest.CommentCount, opt => opt.MapFrom(src => src.Comments.Count))
 				.ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.ProjectTags.Select(pt => pt.Tag.Name).ToList()));
 

@@ -1,6 +1,8 @@
 using DeveloperHub.API.Extensions;
 using DeveloperHub.Application.Extensions;
+using DeveloperHub.Application.Interfaces;
 using DeveloperHub.Application.Mappings;
+using DeveloperHub.Application.Services;
 using DeveloperHub.Application.Validators;
 using DeveloperHub.Infrastructure;
 using DeveloperHub.Infrastructure.Extensions;
@@ -101,6 +103,15 @@ builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 // FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
+// SendGrid Email Service
+builder.Services.AddSingleton<IEmailService>(sp =>
+	new SendGridEmailService(
+		builder.Configuration["SendGrid:ApiKey"]!,
+		builder.Configuration["SendGrid:FromEmail"]!,
+		builder.Configuration["SendGrid:FromName"]!
+	)
+);
 
 var app = builder.Build();
 

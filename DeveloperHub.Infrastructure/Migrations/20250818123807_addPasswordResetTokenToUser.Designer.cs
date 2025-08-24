@@ -3,6 +3,7 @@ using System;
 using DeveloperHub.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DeveloperHub.Infrastructure.Migrations
 {
     [DbContext(typeof(DeveloperHubDbContext))]
-    partial class DeveloperHubDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250818123807_addPasswordResetTokenToUser")]
+    partial class addPasswordResetTokenToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -149,9 +152,6 @@ namespace DeveloperHub.Infrastructure.Migrations
 
                     b.Property<DateTime?>("PasswordResetTokenExpiry")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("ProfileImageUrl")
-                        .HasColumnType("text");
 
                     b.Property<int>("Role")
                         .HasColumnType("integer");
