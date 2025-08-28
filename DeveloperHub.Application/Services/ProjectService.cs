@@ -40,10 +40,16 @@ namespace DeveloperHub.Application.Services
 			return project != null ? _mapper.Map<ProjectDto>(project) : null;
 		}
 
-		public async Task<IEnumerable<ProjectSummaryDto>> GetByUserIdAsync(Guid userId)
+		public async Task<PaginatedResult<ProjectSummaryDto>> GetByUserIdPagedAsync(Guid userId, int pageNumber, int pageSize)
 		{
-			var projects = await _projectRepository.GetByUserIdAsync(userId);
-			return _mapper.Map<IEnumerable<ProjectSummaryDto>>(projects);
+			pageNumber = pageNumber < 1 ? 1 : pageNumber;
+			pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
+
+			var projects = await _projectRepository.GetByUserIdAsync(userId, pageNumber, pageSize);
+			var totalCount = await _projectRepository.GetUserTotalCountAsync(userId);
+
+			var projectDtos = _mapper.Map<List<ProjectSummaryDto>>(projects);
+			return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);
 		}
 
 		public async Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName)
@@ -77,6 +83,10 @@ namespace DeveloperHub.Application.Services
 		public async Task<ProjectDto> CreateAsync(CreateProjectDto dto, Guid userId)
 		{
 			await _createValidator.ValidateAndThrowAsync(dto);
+
+			var existing = await _projectRepository.GetByGitHubUrlAsync(dto.GitHubUrl);
+			if (existing != null)
+				throw new InvalidOperationException($"El proyecto con URL {dto.GitHubUrl} ya existe");
 
 			var user = await _userRepository.GetByIdAsync(userId)
 				?? throw new KeyNotFoundException($"User with ID {userId} not found");

@@ -44,7 +44,7 @@ namespace DeveloperHub.API.Controllers
 			[FromQuery] int pageNumber = 1,
 			[FromQuery] int pageSize = 10)
 		{
-			var projects = await _projectService.GetByUserIdAsync(userId);
+			var projects = await _projectService.GetByUserIdPagedAsync(userId, pageNumber, pageSize);
 			return Ok(projects);
 		}
 

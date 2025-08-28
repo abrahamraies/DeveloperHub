@@ -79,7 +79,7 @@ namespace DeveloperHub.Application.Services
 			user.SetPasswordResetToken(token, DateTime.UtcNow.AddHours(1));
 			await _userRepository.UpdateAsync(user);
 
-			var resetLink = $"https://tusfrontend.com/reset-password?token={token}";
+			var resetLink = $"http://localhost:5173/reset-password?token={token}";
 			await _emailService.SendEmailAsync(user.Email, "Recuperar contraseña",
 				$"Haz click en el siguiente enlace para resetear tu contraseña: {resetLink}");
 
@@ -106,7 +106,7 @@ namespace DeveloperHub.Application.Services
 			if (user == null) throw new KeyNotFoundException("User not found.");
 
 			if (!_passwordHasher.Verify(currentPassword, user.PasswordHash))
-				throw new UnauthorizedAccessException("Current password is incorrect.");
+				return false;
 
 			var hashedPassword = _passwordHasher.Hash(newPassword);
 			user.UpdatePassword(hashedPassword);

@@ -4,7 +4,6 @@ using DeveloperHub.Application.Interfaces;
 using DeveloperHub.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace DeveloperHub.API.Controllers
 {

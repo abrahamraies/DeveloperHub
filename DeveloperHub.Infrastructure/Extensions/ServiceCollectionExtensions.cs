@@ -1,7 +1,9 @@
-﻿using DeveloperHub.Application.Interfaces.Security;
+﻿using DeveloperHub.Application.Interfaces;
+using DeveloperHub.Application.Interfaces.Security;
 using DeveloperHub.Domain.Interfaces.Repositories;
 using DeveloperHub.Infrastructure.Repositories;
 using DeveloperHub.Infrastructure.Security;
+using DeveloperHub.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,6 +22,7 @@ namespace DeveloperHub.Infrastructure.Extensions
 			services.AddScoped<ICommentRepository, CommentRepository>();
 			services.AddScoped<ITagRepository, TagRepository>();
 			services.AddScoped<IPasswordHasher, PasswordHasher>();
+			services.AddHttpClient<IGitHubAuthService, GitHubAuthService>();
 
 			return services;
 		}

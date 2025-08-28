@@ -19,13 +19,16 @@ namespace DeveloperHub.Infrastructure.Repositories
 				.FirstOrDefaultAsync(p => p.Id == id);
 		}
 
-		public async Task<IEnumerable<Project>> GetByUserIdAsync(Guid userId)
+		public async Task<IEnumerable<Project>> GetByUserIdAsync(Guid userId, int pageNumber, int pageSize)
 		{
 			return await _context.Projects
 				.Include(p => p.Owner)
 				.Include(p => p.ProjectTags)
 					.ThenInclude(pt => pt.Tag)
 				.Where(p => p.OwnerId == userId)
+				.OrderByDescending(p => p.CreatedAt)
+				.Skip((pageNumber - 1) * pageSize)
+				.Take(pageSize)
 				.ToListAsync();
 		}
 
@@ -127,7 +130,19 @@ namespace DeveloperHub.Infrastructure.Repositories
 				.AnyAsync(p => p.Id == projectId && p.OwnerId == userId);
 		}
 
-		public async Task<int> GetTotalCountAsync() =>
-			await _context.Projects.CountAsync();
+		public async Task<int> GetTotalCountAsync()
+		{
+			return await _context.Projects.CountAsync();
+		}
+		public async Task<int> GetUserTotalCountAsync(Guid userId)
+		{
+			return await _context.Projects.CountAsync(p => p.OwnerId == userId);
+		}
+
+		public async Task<Project?> GetByGitHubUrlAsync(string githubUrl)
+		{
+			return await _context.Projects.FirstOrDefaultAsync(p => p.GitHubUrl.Url == githubUrl);
+		}
+
 	}
 }

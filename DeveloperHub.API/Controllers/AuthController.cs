@@ -70,8 +70,9 @@ namespace DeveloperHub.API.Controllers
 		{
 			var userId = User.GetUserId();
 			var result = await _authService.ChangePasswordAsync(userId, dto.CurrentPassword, dto.NewPassword);
+
 			if (!result)
-				return BadRequest(new { message = "No se pudo cambiar la contraseña." });
+				return BadRequest(new { message = "La contraseña actual es incorrecta." });
 
 			return Ok(new { message = "Contraseña actualizada correctamente." });
 		}

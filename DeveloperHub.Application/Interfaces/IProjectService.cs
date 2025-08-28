@@ -5,7 +5,7 @@ namespace DeveloperHub.Application.Interfaces
 	public interface IProjectService
 	{
 		Task<ProjectDto?> GetByIdAsync(Guid id);
-		Task<IEnumerable<ProjectSummaryDto>> GetByUserIdAsync(Guid userId);
+		Task<PaginatedResult<ProjectSummaryDto>> GetByUserIdPagedAsync(Guid userId, int pageNumber, int pageSize);
 		Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName);
 		Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(
 			int pageNumber,
