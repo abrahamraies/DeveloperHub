@@ -1,6 +1,7 @@
 ﻿using AutoMapper;
 using DeveloperHub.Application.DTOs;
 using DeveloperHub.Application.Interfaces;
+using DeveloperHub.Domain.Entities;
 using DeveloperHub.Domain.Enums;
 using DeveloperHub.Domain.Interfaces.Repositories;
 using FluentValidation;

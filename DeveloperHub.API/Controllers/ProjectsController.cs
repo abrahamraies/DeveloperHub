@@ -72,8 +72,8 @@ namespace DeveloperHub.API.Controllers
 		public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProjectDto dto)
 		{
 			var userId = User.GetUserId();
-			await _projectService.UpdateAsync(id, dto, userId);
-			return NoContent();
+			var updatedProject = await _projectService.UpdateAsync(id, dto, userId);
+			return Ok(updatedProject);
 		}
 
 		[HttpDelete("{id:guid}")]

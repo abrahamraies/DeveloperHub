@@ -41,6 +41,9 @@ public class User : BaseEntity
 	public string? ProfileImageUrl { get; private set; }
 	public string? PasswordResetToken { get; private set; }
 	public DateTime? PasswordResetTokenExpiry { get; private set; }
+	public bool EmailVerified { get; private set; } = false;
+	public string? VerificationToken { get; private set; }
+	public DateTime? VerificationTokenExpiry { get; private set; }
 
 	public UserRole Role { get; private set; } = UserRole.User;
 
@@ -109,5 +112,18 @@ public class User : BaseEntity
 	{
 		PasswordHash = hashedPassword;
 		ClearPasswordResetToken();
+	}
+
+	public void SetEmailVerified()
+	{
+		EmailVerified = true;
+		VerificationToken = null;
+		VerificationTokenExpiry = null;
+	}
+
+	public void SetVerificationToken(string token, DateTime expiry)
+	{
+		VerificationToken = token;
+		VerificationTokenExpiry = expiry;
 	}
 }

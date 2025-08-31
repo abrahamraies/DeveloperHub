@@ -35,7 +35,15 @@ namespace DeveloperHub.Infrastructure.Repositories
 			await _context.SaveChangesAsync();
 		}
 
-		public async Task<bool> EmailExistsAsync(string email) =>
-			await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+		public async Task<bool> EmailExistsAsync(string email)
+		{
+			return await _context.Users.AnyAsync(u => u.Email.ToLower() == email);
+		}
+
+		public async Task<User?> GetByConfirmationTokenAsync(string token)
+		{
+			return await _context.Users
+				.FirstOrDefaultAsync(u => u.VerificationToken == token);
+		}
 	}
 }

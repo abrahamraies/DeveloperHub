@@ -52,7 +52,7 @@ namespace DeveloperHub.API.Middleware
 					message = exception.Message;
 					break;
 				case InvalidOperationException:
-					statusCode = StatusCodes.Status409Conflict;
+					statusCode = StatusCodes.Status403Forbidden;
 					message = exception.Message;
 					break;
 			}

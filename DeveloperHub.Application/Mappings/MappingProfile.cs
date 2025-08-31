@@ -35,8 +35,10 @@ namespace DeveloperHub.Application.Mappings
 				.ForMember(dest => dest.Tags, opt => opt.MapFrom(src => src.ProjectTags.Select(pt => pt.Tag.Name).ToList()));
 
 			CreateMap<UpdateProjectDto, Project>()
-				.ForMember(dest => dest.GitHubUrl, opt => opt.MapFrom(src => src.GitHubUrl))
-				.ForMember(dest => dest.DiscordUrl, opt => opt.MapFrom(src => src.DiscordUrl))
+				.ForMember(dest => dest.GitHubUrl, opt => opt.MapFrom(src =>
+					src.GitHubUrl != null ? new ProjectUrl(src.GitHubUrl, UrlType.GitHub) : null))
+				.ForMember(dest => dest.DiscordUrl, opt => opt.MapFrom(src =>
+					src.DiscordUrl != null ? new ProjectUrl(src.DiscordUrl, UrlType.Discord) : null))
 				.ForMember(dest => dest.ProjectTags, opt => opt.Ignore());
 
 			CreateMap<Comment, CommentDto>()

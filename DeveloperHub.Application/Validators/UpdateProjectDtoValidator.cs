@@ -18,9 +18,6 @@ namespace DeveloperHub.Application.Validators
 			RuleFor(x => x.GitHubUrl)
 				.NotEmpty().WithMessage("GitHub URL is required.");
 
-			RuleFor(x => x.DiscordUrl)
-				.NotEmpty().WithMessage("Discord URL is required.");
-
 			RuleFor(x => x.Tags)
 				.NotEmpty().WithMessage("At least one tag is required.")
 				.Must(tags => tags.Count <= 10)

@@ -8,8 +8,8 @@ namespace DeveloperHub.Application.DTOs
 	{
 		public string? Title { get; init; } = default!;
 		public string? Description { get; init; } = default!;
-		public ProjectUrl? GitHubUrl { get; init; } = default!;
-		public ProjectUrl? DiscordUrl { get; init; }
+		public string? GitHubUrl { get; init; } = default!;
+		public string? DiscordUrl { get; init; }
 		public List<string>? Tags { get; init; } = [];
 	}
 
@@ -32,6 +32,7 @@ namespace DeveloperHub.Application.DTOs
 		public Guid Id { get; init; }
 		public string Title { get; init; } = string.Empty;
 		public string Description { get; init; } = string.Empty;
+		public string OwnerId { get; init; } = string.Empty;
 		public string OwnerUsername { get; init; } = string.Empty;
 		public string OwnerProfileImageUrl { get; init; } = string.Empty;
 		public DateTime CreatedAt { get; init; }

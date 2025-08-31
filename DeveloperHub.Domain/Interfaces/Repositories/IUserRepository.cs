@@ -11,5 +11,6 @@ namespace DeveloperHub.Domain.Interfaces.Repositories
 		Task AddAsync(User user);
 		Task UpdateAsync(User user);
 		Task<bool> EmailExistsAsync(string email);
+		Task<User?> GetByConfirmationTokenAsync(string token);
 	}
 }

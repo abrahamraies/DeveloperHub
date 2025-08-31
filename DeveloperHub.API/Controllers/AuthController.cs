@@ -15,8 +15,15 @@ namespace DeveloperHub.API.Controllers
 		[HttpPost("register")]
 		public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 		{
-			var result = await _authService.RegisterAsync(dto);
-			return Ok(result);
+			try
+			{
+				await _authService.RegisterAsync(dto);
+				return Ok(new { message = "Usuario registrado. Revisa tu email para verificar tu cuenta." });
+			}
+			catch (Exception ex)
+			{
+				return BadRequest(new { message = ex.Message });
+			}
 		}
 
 		[HttpPost("login")]
@@ -75,6 +82,38 @@ namespace DeveloperHub.API.Controllers
 				return BadRequest(new { message = "La contraseña actual es incorrecta." });
 
 			return Ok(new { message = "Contraseña actualizada correctamente." });
+		}
+
+		[HttpGet("verify-email")]
+		public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+		{
+			if (string.IsNullOrWhiteSpace(token))
+				return BadRequest(new { message = "Token es requerido" });
+
+			var success = await _authService.ConfirmEmailAsync(token);
+
+			if (!success)
+				return BadRequest("Token inválido o expirado.");
+
+			return Ok("Email confirmado correctamente. Ahora puedes iniciar sesión.");
+		}
+
+		[HttpPost("resend-verification")]
+		public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationDto dto)
+		{
+			try
+			{
+				var success = await _authService.ResendVerificationEmailAsync(dto.Email);
+
+				if (!success)
+					return Ok(new { message = "Si el email está registrado, se reenviará la verificación." });
+
+				return Ok(new { message = "Email de verificación reenviado." });
+			}
+			catch (InvalidOperationException ex)
+			{
+				return BadRequest(new { message = ex.Message });
+			}
 		}
 	}
 }

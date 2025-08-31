@@ -34,12 +34,30 @@ namespace DeveloperHub.API.Controllers
 			return Ok(repos);
 		}
 
-		[HttpPost("callback")]
-		public async Task<IActionResult> Callback([FromForm] string code)
+		[HttpGet("repo")]
+		[Authorize]
+		public async Task<IActionResult> GetRepo([FromQuery] string token,[FromQuery] string owner,[FromQuery] string repoName)
 		{
 			try
 			{
-				var accessToken = await _gitHubService.GetAccessTokenAsync(code);
+				var repo = await _gitHubService.GetRepoByNameAsync(token, owner, repoName);
+				if (repo == null)
+					return NotFound(new { error = "Repositorio no encontrado en GitHub" });
+
+				return Ok(repo);
+			}
+			catch (Exception ex)
+			{
+				return BadRequest(new { error = "Error al obtener el repositorio", message = ex.Message });
+			}
+		}
+
+		[HttpPost("callback")]
+		public async Task<IActionResult> Callback([FromBody] GitHubCallbackDto dto)
+		{
+			try
+			{
+				var accessToken = await _gitHubService.GetAccessTokenAsync(dto.Code);
 				var githubUser = await _gitHubService.GetUserAsync(accessToken);
 
 				var userId = User.GetUserId();
@@ -81,12 +99,23 @@ namespace DeveloperHub.API.Controllers
 
 				var userId = User.GetUserId();
 
+				var tags = new List<string>();
+				if (!string.IsNullOrWhiteSpace(repo.Language))
+					tags.Add(repo.Language.ToLowerInvariant());
+
+				tags.AddRange(repo.Topics
+					.Where(t => !string.IsNullOrWhiteSpace(t))
+					.Select(t => t.ToLowerInvariant())
+					.Distinct());
+
+				tags = tags.Distinct().ToList();
+
 				var dto = new CreateProjectDto(
 					repo.Name,
 					repo.Description ?? "Sin descripción",
 					repo.HtmlUrl,
 					null,
-					repo.Topics
+					tags
 				);
 
 				var project = await _projectService.CreateAsync(dto, userId);

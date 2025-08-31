@@ -6,6 +6,7 @@ using DeveloperHub.Domain.Entities;
 using DeveloperHub.Domain.Enums;
 using DeveloperHub.Domain.Interfaces.Repositories;
 using FluentValidation;
+using System.Net;
 
 namespace DeveloperHub.Application.Services
 {
@@ -36,7 +37,7 @@ namespace DeveloperHub.Application.Services
 			_registerValidator = registerValidator;
 		}
 
-		public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+		public async Task RegisterAsync(RegisterDto dto)
 		{
 			await _registerValidator.ValidateAndThrowAsync(dto);
 
@@ -45,10 +46,13 @@ namespace DeveloperHub.Application.Services
 
 			var user = new User(dto.Username, dto.Email, _passwordHasher.Hash(dto.Password), UserRole.User);
 
+			var verificationToken = Guid.NewGuid().ToString("N");
+			var expiry = DateTime.UtcNow.AddHours(24);
+
+			user.SetVerificationToken(verificationToken, expiry);
 			await _userRepository.AddAsync(user);
 
-			var token = _jwtService.GenerateToken(user);
-			return new AuthResponseDto(user.Id, token);
+			await _emailService.SendVerificationEmail(user.Email, verificationToken);
 		}
 
 		public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
@@ -59,6 +63,9 @@ namespace DeveloperHub.Application.Services
 
 			if (user == null || !_passwordHasher.Verify(dto.Password, user.PasswordHash))
 				throw new UnauthorizedAccessException("Invalid email or password.");
+
+			if (!user.EmailVerified)
+				throw new InvalidOperationException("You must confirm your email before logging in.");
 
 			var token = _jwtService.GenerateToken(user);
 			return new AuthResponseDto(user.Id, token);
@@ -112,6 +119,39 @@ namespace DeveloperHub.Application.Services
 			user.UpdatePassword(hashedPassword);
 
 			await _userRepository.UpdateAsync(user);
+			return true;
+		}
+
+		public async Task<bool> ConfirmEmailAsync(string token)
+		{
+			var user = await _userRepository.GetByConfirmationTokenAsync(token);
+
+			if (user == null || user.VerificationTokenExpiry < DateTime.UtcNow)
+				return false;
+
+			user.SetEmailVerified();
+			await _userRepository.UpdateAsync(user);
+
+			return true;
+		}
+
+		public async Task<bool> ResendVerificationEmailAsync(string email)
+		{
+			var user = await _userRepository.GetByEmailAsync(email);
+			if (user == null)
+				return false;
+
+			if (user.EmailVerified)
+				throw new InvalidOperationException("The email has already been verified.");
+
+			var verificationToken = Guid.NewGuid().ToString("N");
+			var expiry = DateTime.UtcNow.AddHours(24);
+
+			user.SetVerificationToken(verificationToken, expiry);
+			await _userRepository.UpdateAsync(user);
+
+			await _emailService.SendVerificationEmail(user.Email, verificationToken);
+
 			return true;
 		}
 	}

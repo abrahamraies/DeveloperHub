@@ -2,7 +2,9 @@
 using DeveloperHub.Application.DTOs;
 using DeveloperHub.Application.Interfaces;
 using DeveloperHub.Domain.Entities;
+using DeveloperHub.Domain.Enums;
 using DeveloperHub.Domain.Interfaces.Repositories;
+using DeveloperHub.Domain.ValueObjects;
 using FluentValidation;
 
 namespace DeveloperHub.Application.Services
@@ -86,7 +88,7 @@ namespace DeveloperHub.Application.Services
 
 			var existing = await _projectRepository.GetByGitHubUrlAsync(dto.GitHubUrl);
 			if (existing != null)
-				throw new InvalidOperationException($"El proyecto con URL {dto.GitHubUrl} ya existe");
+				throw new InvalidOperationException($"The project with URL {dto.GitHubUrl} already exists");
 
 			var user = await _userRepository.GetByIdAsync(userId)
 				?? throw new KeyNotFoundException($"User with ID {userId} not found");
@@ -110,7 +112,7 @@ namespace DeveloperHub.Application.Services
 			return _mapper.Map<ProjectDto>(project);
 		}
 
-		public async Task UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId)
+		public async Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId)
 		{
 			if (!await _projectRepository.ExistsAsync(id))
 				throw new KeyNotFoundException($"Project with ID {id} not found");
@@ -124,8 +126,8 @@ namespace DeveloperHub.Application.Services
 			project.Update(
 				dto.Title ?? project.Title,
 				dto.Description ?? project.Description,
-				dto.GitHubUrl ?? project.GitHubUrl,
-				dto.DiscordUrl ?? project.DiscordUrl
+				!string.IsNullOrWhiteSpace(dto.GitHubUrl) ? new ProjectUrl(dto.GitHubUrl, UrlType.GitHub) : project.GitHubUrl,
+				!string.IsNullOrWhiteSpace(dto.DiscordUrl) ? new ProjectUrl(dto.DiscordUrl, UrlType.Discord) : project.DiscordUrl
 			);
 
 			if (dto.Tags is not null && dto.Tags.Any())
@@ -134,6 +136,8 @@ namespace DeveloperHub.Application.Services
 			}
 
 			await _projectRepository.UpdateAsync(project);
+
+			return _mapper.Map<ProjectDto>(project);
 		}
 
 		public async Task DeleteAsync(Guid id, Guid userId)

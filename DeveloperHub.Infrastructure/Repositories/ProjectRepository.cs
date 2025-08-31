@@ -23,6 +23,7 @@ namespace DeveloperHub.Infrastructure.Repositories
 		{
 			return await _context.Projects
 				.Include(p => p.Owner)
+				.Include(p => p.Comments)
 				.Include(p => p.ProjectTags)
 					.ThenInclude(pt => pt.Tag)
 				.Where(p => p.OwnerId == userId)

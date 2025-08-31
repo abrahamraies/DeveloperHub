@@ -1,4 +1,5 @@
 ﻿using DeveloperHub.Application.DTOs;
+using DeveloperHub.Domain.Entities;
 using DeveloperHub.Domain.Enums;
 
 namespace DeveloperHub.Application.Interfaces

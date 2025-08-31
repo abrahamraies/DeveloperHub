@@ -13,7 +13,7 @@ namespace DeveloperHub.Application.Interfaces
 			string? search = null,
 			List<string> tags = null!);
 		Task<ProjectDto> CreateAsync(CreateProjectDto dto, Guid userId);
-		Task UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId);
+		Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId);
 		Task DeleteAsync(Guid id, Guid userId);
 		Task<bool> IsOwnerAsync(Guid projectId, Guid userId);
 	}
