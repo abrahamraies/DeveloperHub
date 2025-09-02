@@ -19,8 +19,6 @@ namespace DeveloperHub.Application.Mappings
 				.ForMember(dest => dest.GitHubUrl, opt => opt.MapFrom(src => src.GitHubUrl))
 				.ForMember(dest => dest.DiscordUrl, opt => opt.MapFrom(src => src.DiscordUrl));
 
-			CreateMap<Tag, TagDto>();
-
 			CreateMap<Project, ProjectDto>()
 				.ForMember(dest => dest.OwnerUsername, opt => opt.MapFrom(src => src.Owner.Username))
 				.ForMember(dest => dest.GitHubUrl, opt => opt.MapFrom(src => src.GitHubUrl.Url))

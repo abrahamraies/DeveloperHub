@@ -1,33 +1,14 @@
-﻿using DeveloperHub.Domain.Enums;
-using DeveloperHub.Domain.Exceptions;
-using DeveloperHub.Domain.Guards;
-using DeveloperHub.Domain.ValueObjects;
+﻿using DeveloperHub.Domain.ValueObjects;
 
 namespace DeveloperHub.Domain.Entities;
 public class Project : BaseEntity
 {
-	private Project() { }
-
-	public Project(
-		string title,
-		string description,
-		string gitHubUrl,
-		string? discordUrl,
-		Guid ownerId)
-	{
-		Title = Guard.Against.NullOrWhiteSpace(title, nameof(title));
-		Description = Guard.Against.NullOrWhiteSpace(description, nameof(description));
-		GitHubUrl = new ProjectUrl(gitHubUrl, UrlType.GitHub);
-		DiscordUrl = discordUrl != null ? new ProjectUrl(discordUrl, UrlType.Discord) : null;
-		OwnerId = ownerId;
-	}
-
-	public string Title { get; private set; }
-	public string Description { get; private set; }
-	public ProjectUrl GitHubUrl { get; private set; }
-	public ProjectUrl? DiscordUrl { get; private set; }
-	public Guid OwnerId { get; private set; }
-	public User Owner { get; private set; } = default!;
+	public required string Title { get; set; }
+	public required string Description { get; set; }
+	public required ProjectUrl GitHubUrl { get; set; }
+	public ProjectUrl? DiscordUrl { get; set; }
+	public required Guid OwnerId { get; init; }
+	public User Owner { get; init; } = default!;
 
 	private readonly List<Comment> _comments = [];
 	public IReadOnlyCollection<Comment> Comments => _comments.AsReadOnly();
@@ -41,8 +22,8 @@ public class Project : BaseEntity
 		ProjectUrl gitHubUrl,
 		ProjectUrl? discordUrl)
 	{
-		Title = Guard.Against.NullOrWhiteSpace(title, nameof(title));
-		Description = Guard.Against.NullOrWhiteSpace(description, nameof(description));
+		Title = title;
+		Description = description;
 		GitHubUrl = gitHubUrl;
 		DiscordUrl = discordUrl;
 	}

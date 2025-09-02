@@ -1,51 +1,23 @@
-﻿using DeveloperHub.Domain.Entities;
-using DeveloperHub.Domain.Enums;
+﻿using DeveloperHub.Domain.Enums;
 using DeveloperHub.Domain.Exceptions;
-using DeveloperHub.Domain.Guards;
 
 namespace DeveloperHub.Domain.Entities;
 public class User : BaseEntity
 {
-	private User() { }
-	public User(string username, string email, string passwordHash, UserRole role)
-	{
-		Username = username;
-		Email = email;
-		PasswordHash = passwordHash;
-		Role = role;
-	}
+	public required string Username { get; set; }
+	public required string Email { get; set; }
+	public required string PasswordHash { get; set; }
 
-	private string _username = string.Empty;
-	public string Username
-	{
-		get => _username;
-		private set => _username = Guard.Against.NullOrWhiteSpace(value, nameof(Username));
-	}
+	public string? GitHubUrl { get; set; }
+	public string? DiscordUrl { get; set; }
+	public string? ProfileImageUrl { get; set; }
+	public string? PasswordResetToken { get; set; }
+	public DateTime? PasswordResetTokenExpiry { get; set; }
+	public bool EmailVerified { get; set; } = false;
+	public string? VerificationToken { get; set; }
+	public DateTime? VerificationTokenExpiry { get; set; }
 
-	private string _email = string.Empty;
-	public string Email
-	{
-		get => _email;
-		private set => _email = Guard.Against.NullOrWhiteSpace(value, nameof(Email));
-	}
-
-	private string _passwordHash = string.Empty;
-	public string PasswordHash
-	{
-		get => _passwordHash;
-		private set => _passwordHash = Guard.Against.NullOrWhiteSpace(value, nameof(PasswordHash));
-	}
-
-	public string? GitHubUrl { get; private set; }
-	public string? DiscordUrl { get; private set; }
-	public string? ProfileImageUrl { get; private set; }
-	public string? PasswordResetToken { get; private set; }
-	public DateTime? PasswordResetTokenExpiry { get; private set; }
-	public bool EmailVerified { get; private set; } = false;
-	public string? VerificationToken { get; private set; }
-	public DateTime? VerificationTokenExpiry { get; private set; }
-
-	public UserRole Role { get; private set; } = UserRole.User;
+	public UserRole Role { get; set; } = UserRole.User;
 
 	private readonly List<Project> _projects = [];
 	public IReadOnlyCollection<Project> Projects => _projects.AsReadOnly();
@@ -64,12 +36,12 @@ public class User : BaseEntity
 
 	public void ChangeUsername(string newUsername)
 	{
-		Username = Guard.Against.NullOrWhiteSpace(newUsername, nameof(newUsername));
+		Username = newUsername;
 	}
 
 	public void ChangeEmail(string newEmail)
 	{
-		Email = Guard.Against.NullOrWhiteSpace(newEmail, nameof(newEmail));
+		Email = newEmail;
 	}
 
 	public void ChangeGitHubUrl(string? newGitHubUrl)

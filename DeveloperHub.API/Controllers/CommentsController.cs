@@ -3,60 +3,58 @@ using DeveloperHub.Application.DTOs;
 using DeveloperHub.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
-namespace DeveloperHub.API.Controllers
+namespace DeveloperHub.API.Controllers;
+
+[ApiController]
+[Route("api/comments")]
+public class CommentsController(ICommentService commentService) : ControllerBase
 {
-	[ApiController]
-	[Route("api/comments")]
-	public class CommentsController(ICommentService commentService) : ControllerBase
+	private readonly ICommentService _commentService = commentService;
+
+	[HttpGet("{id:guid}")]
+	public async Task<IActionResult> GetById(Guid id)
 	{
-		private readonly ICommentService _commentService = commentService;
-
-		[HttpGet("{id:guid}")]
-		public async Task<IActionResult> GetById(Guid id)
+		try
 		{
-			try
-			{
-				var comment = await _commentService.GetCommentByIdAsync(id);
-				return Ok(comment);
-			}
-			catch (KeyNotFoundException ex)
-			{
-				return NotFound(ex.Message);
-			}
+			var comment = await _commentService.GetCommentByIdAsync(id);
+			return Ok(comment);
 		}
-
-		[HttpGet("project/{projectId:guid}")]
-		public async Task<IActionResult> GetByProjectId(Guid projectId)
+		catch (KeyNotFoundException ex)
 		{
-			var comments = await _commentService.GetByProjectIdAsync(projectId);
-			return Ok(comments);
+			return NotFound(ex.Message);
 		}
+	}
 
-		[HttpGet("user/{userId:guid}")]
-		public async Task<IActionResult> GetByUserId(Guid userId)
-		{
-			var comments = await _commentService.GetByUserIdAsync(userId);
-			return Ok(comments);
-		}
+	[HttpGet("project/{projectId:guid}")]
+	public async Task<IActionResult> GetByProjectId(Guid projectId)
+	{
+		var comments = await _commentService.GetByProjectIdAsync(projectId);
+		return Ok(comments);
+	}
 
-		[Authorize]
-		[HttpPost("project/{projectId:guid}")]
-		public async Task<IActionResult> Create(Guid projectId, [FromBody] CreateCommentDto dto)
-		{
-			var userId = User.GetUserId();
-			var comment = await _commentService.CreateAsync(dto, projectId, userId);
-			return CreatedAtAction(nameof(GetById), new { id = comment.Id }, comment);
-		}
+	[HttpGet("user/{userId:guid}")]
+	public async Task<IActionResult> GetByUserId(Guid userId)
+	{
+		var comments = await _commentService.GetByUserIdAsync(userId);
+		return Ok(comments);
+	}
 
-		[Authorize]
-		[HttpDelete("{id:guid}")]
-		public async Task<IActionResult> Delete(Guid id)
-		{
-			var userId = User.GetUserId();
-			await _commentService.DeleteAsync(id, userId);
-			return NoContent();
-		}
+	[Authorize]
+	[HttpPost("project/{projectId:guid}")]
+	public async Task<IActionResult> Create(Guid projectId, [FromBody] CreateCommentDto dto)
+	{
+		var userId = User.GetUserId();
+		var comment = await _commentService.CreateAsync(dto, projectId, userId);
+		return CreatedAtAction(nameof(GetById), new { id = comment.Id }, comment);
+	}
+
+	[Authorize]
+	[HttpDelete("{id:guid}")]
+	public async Task<IActionResult> Delete(Guid id)
+	{
+		var userId = User.GetUserId();
+		await _commentService.DeleteAsync(id, userId);
+		return NoContent();
 	}
 }

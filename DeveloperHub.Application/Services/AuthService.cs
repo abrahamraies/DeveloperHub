@@ -6,153 +6,136 @@ using DeveloperHub.Domain.Entities;
 using DeveloperHub.Domain.Enums;
 using DeveloperHub.Domain.Interfaces.Repositories;
 using FluentValidation;
-using System.Net;
 
-namespace DeveloperHub.Application.Services
+namespace DeveloperHub.Application.Services;
+
+public class AuthService(
+	IEmailService emailService,
+	IJwtService jwtService,
+	IMapper mapper,
+	IPasswordHasher passwordHasher,
+	IUserRepository userRepository,
+	IValidator<RegisterDto> registerValidator
+) : IAuthService
 {
-	public class AuthService : IAuthService
+	public async Task RegisterAsync(RegisterDto dto)
 	{
-		private readonly IEmailService _emailService;
-		private readonly IJwtService _jwtService;
-		private readonly IMapper _mapper;
-		private readonly IPasswordHasher _passwordHasher;
-		private readonly IUserRepository _userRepository;
-		private readonly IValidator<RegisterDto> _registerValidator;
+		await registerValidator.ValidateAndThrowAsync(dto);
 
-		public AuthService
-		(
-			IEmailService emailService,
-			IJwtService jwtService,
-			IMapper mapper,
-			IPasswordHasher passwordHasher,
-			IUserRepository userRepository,
-			IValidator<RegisterDto> registerValidator
-		)
+		if (await userRepository.EmailExistsAsync(dto.Email))
+			throw new InvalidOperationException("Email is already in use.");
+
+		var user = new User
 		{
-			_emailService = emailService;
-			_jwtService = jwtService;
-			_mapper = mapper;
-			_passwordHasher = passwordHasher;
-			_userRepository = userRepository;
-			_registerValidator = registerValidator;
-		}
+			Username = dto.Username,
+			Email = dto.Email,
+			PasswordHash = passwordHasher.Hash(dto.Password),
+			Role = UserRole.User
+		};
 
-		public async Task RegisterAsync(RegisterDto dto)
-		{
-			await _registerValidator.ValidateAndThrowAsync(dto);
+		var verificationToken = Guid.NewGuid().ToString("N");
+		var expiry = DateTime.UtcNow.AddHours(24);
 
-			if (await _userRepository.EmailExistsAsync(dto.Email))
-				throw new InvalidOperationException("Email is already in use.");
+		user.SetVerificationToken(verificationToken, expiry);
+		await userRepository.AddAsync(user);
 
-			var user = new User(dto.Username, dto.Email, _passwordHasher.Hash(dto.Password), UserRole.User);
+		await emailService.SendVerificationEmail(user.Email, verificationToken);
+	}
 
-			var verificationToken = Guid.NewGuid().ToString("N");
-			var expiry = DateTime.UtcNow.AddHours(24);
+	public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
+	{
+		var user = await userRepository.GetByEmailAsync(dto.Email);
+		if (user == null || !passwordHasher.Verify(dto.Password, user.PasswordHash))
+			throw new UnauthorizedAccessException("Invalid email or password.");
 
-			user.SetVerificationToken(verificationToken, expiry);
-			await _userRepository.AddAsync(user);
+		if (!user.EmailVerified)
+			throw new InvalidOperationException("You must confirm your email before logging in.");
 
-			await _emailService.SendVerificationEmail(user.Email, verificationToken);
-		}
+		var token = jwtService.GenerateToken(user);
+		return new AuthResponseDto(user.Id, token);
+	}
 
-		public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
-		{
-			var user = await _userRepository.GetByEmailAsync(dto.Email);
-			if (user == null || !_passwordHasher.Verify(dto.Password, user.PasswordHash))
-				throw new UnauthorizedAccessException("Invalid email or password.");
+	public async Task<UserDto> GetCurrentUserAsync(Guid userId)
+	{
+		var user = await userRepository.GetByIdAsync(userId) ?? throw new KeyNotFoundException("User not found.");
+		return mapper.Map<UserDto>(user);
+	}
 
-			if (user == null || !_passwordHasher.Verify(dto.Password, user.PasswordHash))
-				throw new UnauthorizedAccessException("Invalid email or password.");
+	public async Task<bool> ForgotPasswordAsync(string email)
+	{
+		var user = await userRepository.GetByEmailAsync(email);
+		if (user == null) return false;
 
-			if (!user.EmailVerified)
-				throw new InvalidOperationException("You must confirm your email before logging in.");
+		var token = Guid.NewGuid().ToString("N");
+		user.SetPasswordResetToken(token, DateTime.UtcNow.AddHours(1));
+		await userRepository.UpdateAsync(user);
 
-			var token = _jwtService.GenerateToken(user);
-			return new AuthResponseDto(user.Id, token);
-		}
+		var resetLink = $"http://localhost:5173/reset-password?token={token}";
+		await emailService.SendEmailAsync(user.Email, "Recuperar contraseña",
+			$"Haz click en el siguiente enlace para resetear tu contraseña: {resetLink}");
 
-		public async Task<UserDto> GetCurrentUserAsync(Guid userId)
-		{
-			var user = await _userRepository.GetByIdAsync(userId) ?? throw new KeyNotFoundException("User not found.");
-			return _mapper.Map<UserDto>(user);
-		}
+		return true;
+	}
 
-		public async Task<bool> ForgotPasswordAsync(string email)
-		{
-			var user = await _userRepository.GetByEmailAsync(email);
-			if (user == null) return false;
+	public async Task<bool> ResetPasswordAsync(string token, string newPassword)
+	{
+		var user = (await userRepository.GetAllAsync(1, int.MaxValue))
+			.FirstOrDefault(u => u.PasswordResetToken == token && u.PasswordResetTokenExpiry > DateTime.UtcNow);
 
-			var token = Guid.NewGuid().ToString("N");
-			user.SetPasswordResetToken(token, DateTime.UtcNow.AddHours(1));
-			await _userRepository.UpdateAsync(user);
+		if (user == null) return false;
 
-			var resetLink = $"http://localhost:5173/reset-password?token={token}";
-			await _emailService.SendEmailAsync(user.Email, "Recuperar contraseña",
-				$"Haz click en el siguiente enlace para resetear tu contraseña: {resetLink}");
+		var hashedPassword = passwordHasher.Hash(newPassword);
+		user.UpdatePassword(hashedPassword);
 
-			return true;
-		}
+		await userRepository.UpdateAsync(user);
+		return true;
+	}
 
-		public async Task<bool> ResetPasswordAsync(string token, string newPassword)
-		{
-			var user = (await _userRepository.GetAllAsync(1, int.MaxValue))
-				.FirstOrDefault(u => u.PasswordResetToken == token && u.PasswordResetTokenExpiry > DateTime.UtcNow);
+	public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
+	{
+		var user = await userRepository.GetByIdAsync(userId);
+		if (user == null) throw new KeyNotFoundException("User not found.");
 
-			if (user == null) return false;
+		if (!passwordHasher.Verify(currentPassword, user.PasswordHash))
+			return false;
 
-			var hashedPassword = _passwordHasher.Hash(newPassword);
-			user.UpdatePassword(hashedPassword);
+		var hashedPassword = passwordHasher.Hash(newPassword);
+		user.UpdatePassword(hashedPassword);
 
-			await _userRepository.UpdateAsync(user);
-			return true;
-		}
+		await userRepository.UpdateAsync(user);
+		return true;
+	}
 
-		public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
-		{
-			var user = await _userRepository.GetByIdAsync(userId);
-			if (user == null) throw new KeyNotFoundException("User not found.");
+	public async Task<bool> ConfirmEmailAsync(string token)
+	{
+		var user = await userRepository.GetByConfirmationTokenAsync(token);
 
-			if (!_passwordHasher.Verify(currentPassword, user.PasswordHash))
-				return false;
+		if (user == null || user.VerificationTokenExpiry < DateTime.UtcNow)
+			return false;
 
-			var hashedPassword = _passwordHasher.Hash(newPassword);
-			user.UpdatePassword(hashedPassword);
+		user.SetEmailVerified();
+		await userRepository.UpdateAsync(user);
 
-			await _userRepository.UpdateAsync(user);
-			return true;
-		}
+		return true;
+	}
 
-		public async Task<bool> ConfirmEmailAsync(string token)
-		{
-			var user = await _userRepository.GetByConfirmationTokenAsync(token);
+	public async Task<bool> ResendVerificationEmailAsync(string email)
+	{
+		var user = await userRepository.GetByEmailAsync(email);
+		if (user == null)
+			return false;
 
-			if (user == null || user.VerificationTokenExpiry < DateTime.UtcNow)
-				return false;
+		if (user.EmailVerified)
+			throw new InvalidOperationException("The email has already been verified.");
 
-			user.SetEmailVerified();
-			await _userRepository.UpdateAsync(user);
+		var verificationToken = Guid.NewGuid().ToString("N");
+		var expiry = DateTime.UtcNow.AddHours(24);
 
-			return true;
-		}
+		user.SetVerificationToken(verificationToken, expiry);
+		await userRepository.UpdateAsync(user);
 
-		public async Task<bool> ResendVerificationEmailAsync(string email)
-		{
-			var user = await _userRepository.GetByEmailAsync(email);
-			if (user == null)
-				return false;
+		await emailService.SendVerificationEmail(user.Email, verificationToken);
 
-			if (user.EmailVerified)
-				throw new InvalidOperationException("The email has already been verified.");
-
-			var verificationToken = Guid.NewGuid().ToString("N");
-			var expiry = DateTime.UtcNow.AddHours(24);
-
-			user.SetVerificationToken(verificationToken, expiry);
-			await _userRepository.UpdateAsync(user);
-
-			await _emailService.SendVerificationEmail(user.Email, verificationToken);
-
-			return true;
-		}
+		return true;
 	}
 }

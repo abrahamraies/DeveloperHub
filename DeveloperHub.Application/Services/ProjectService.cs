@@ -7,212 +7,194 @@ using DeveloperHub.Domain.Interfaces.Repositories;
 using DeveloperHub.Domain.ValueObjects;
 using FluentValidation;
 
-namespace DeveloperHub.Application.Services
+namespace DeveloperHub.Application.Services;
+
+public class ProjectService(
+	IProjectRepository projectRepository,
+	IUserRepository userRepository,
+	ITagRepository tagRepository,
+	IValidator<CreateProjectDto> createValidator,
+	IValidator<UpdateProjectDto> updateValidator,
+	IMapper mapper
+) : IProjectService
 {
-	public class ProjectService : IProjectService
+	public async Task<ProjectDto?> GetByIdAsync(Guid id)
 	{
-		private readonly IProjectRepository _projectRepository;
-		private readonly IUserRepository _userRepository;
-		private readonly ITagRepository _tagRepository;
-		private readonly IValidator<CreateProjectDto> _createValidator;
-		private readonly IValidator<UpdateProjectDto> _updateValidator;
-		private readonly IMapper _mapper;
+		var project = await projectRepository.GetByIdAsync(id);
+		return project != null ? mapper.Map<ProjectDto>(project) : null;
+	}
 
-		public ProjectService
-		(
-			IProjectRepository projectRepository,
-			IUserRepository userRepository,
-			ITagRepository tagRepository,
-			IValidator<CreateProjectDto> createValidator,
-			IValidator<UpdateProjectDto> updateValidator,
-			IMapper mapper
-		)
+	public async Task<PaginatedResult<ProjectSummaryDto>> GetByUserIdPagedAsync(Guid userId, int pageNumber, int pageSize)
+	{
+		pageNumber = pageNumber < 1 ? 1 : pageNumber;
+		pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
+
+		var projects = await projectRepository.GetByUserIdAsync(userId, pageNumber, pageSize);
+		var totalCount = await projectRepository.GetUserTotalCountAsync(userId);
+
+		var projectDtos = mapper.Map<List<ProjectSummaryDto>>(projects);
+		return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);
+	}
+
+	public async Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName, int pageNumber, int pageSize)
+	{
+		var projects = await projectRepository.GetByTagAsync(tagName, pageNumber, pageSize);
+		return mapper.Map<IEnumerable<ProjectSummaryDto>>(projects);
+	}
+
+	public async Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(
+		int pageNumber,
+		int pageSize,
+		string? search = null,
+		List<string> tags = null!)
+	{
+		pageNumber = pageNumber < 1 ? 1 : pageNumber;
+		pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
+
+		var projects = await projectRepository.GetPagedListAsync(
+			pageNumber,
+			pageSize,
+			search,
+			tags ?? new List<string>()
+		);
+
+		var totalCount = await projectRepository.GetTotalCountAsync(search, tags ?? new List<string>());
+
+		var projectDtos = mapper.Map<List<ProjectSummaryDto>>(projects);
+		return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);
+	}
+
+	public async Task<ProjectDto> CreateAsync(CreateProjectDto dto, Guid userId)
+	{
+		await createValidator.ValidateAndThrowAsync(dto);
+
+		var existing = await projectRepository.GetByGitHubUrlAsync(dto.GitHubUrl);
+		if (existing != null)
+			throw new InvalidOperationException($"The project with URL {dto.GitHubUrl} already exists");
+
+		var user = await userRepository.GetByIdAsync(userId)
+			?? throw new KeyNotFoundException($"User with ID {userId} not found");
+
+		var project = new Project
 		{
-			_projectRepository = projectRepository;
-			_userRepository = userRepository;
-			_tagRepository = tagRepository;
-			_createValidator = createValidator;
-			_updateValidator = updateValidator;
-			_mapper = mapper;
+			Title = dto.Title,
+			Description = dto.Description,
+			GitHubUrl = new ProjectUrl(dto.GitHubUrl, UrlType.GitHub),
+			DiscordUrl = dto.DiscordUrl != null ? new ProjectUrl(dto.DiscordUrl, UrlType.Discord) : null,
+			OwnerId = user.Id
+		};
+
+		var tags = await GetOrCreateTags(dto.Tags);
+		foreach (var tag in tags)
+		{
+			project.AddTag(tag);
 		}
 
-		public async Task<ProjectDto?> GetByIdAsync(Guid id)
+		await projectRepository.AddAsync(project);
+
+		return mapper.Map<ProjectDto>(project);
+	}
+
+	public async Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId)
+	{
+		if (!await projectRepository.ExistsAsync(id))
+			throw new KeyNotFoundException($"Project with ID {id} not found");
+
+		if (!await IsOwnerAsync(id, userId))
+			throw new UnauthorizedAccessException("You don't have permission to update this project");
+
+		var project = await projectRepository.GetByIdAsync(id)
+			?? throw new KeyNotFoundException($"Project with ID {id} not found");
+
+		project.Update(
+			dto.Title ?? project.Title,
+			dto.Description ?? project.Description,
+			!string.IsNullOrWhiteSpace(dto.GitHubUrl) ? new ProjectUrl(dto.GitHubUrl, UrlType.GitHub) : project.GitHubUrl,
+			!string.IsNullOrWhiteSpace(dto.DiscordUrl) ? new ProjectUrl(dto.DiscordUrl, UrlType.Discord) : project.DiscordUrl
+		);
+
+		if (dto.Tags is not null && dto.Tags.Any())
 		{
-			var project = await _projectRepository.GetByIdAsync(id);
-			return project != null ? _mapper.Map<ProjectDto>(project) : null;
+			await UpdateProjectTags(project, dto.Tags);
 		}
 
-		public async Task<PaginatedResult<ProjectSummaryDto>> GetByUserIdPagedAsync(Guid userId, int pageNumber, int pageSize)
+		await projectRepository.UpdateAsync(project);
+
+		return mapper.Map<ProjectDto>(project);
+	}
+
+	public async Task DeleteAsync(Guid id, Guid userId)
+	{
+		if (!await projectRepository.ExistsAsync(id))
+			throw new KeyNotFoundException($"Project with ID {id} not found");
+
+		if (!await IsOwnerAsync(id, userId))
+			throw new UnauthorizedAccessException("You don't have permission to delete this project");
+
+		var project = await projectRepository.GetByIdAsync(id)
+			?? throw new KeyNotFoundException($"Project with ID {id} not found");
+
+		await projectRepository.DeleteAsync(project);
+	}
+
+	public async Task<bool> IsOwnerAsync(Guid projectId, Guid userId)
+	{
+		return await projectRepository.IsOwnerAsync(projectId, userId);
+	}
+
+	private async Task<List<Tag>> GetOrCreateTags(List<string> tagNames)
+	{
+		var tags = new List<Tag>();
+		foreach (var tagName in tagNames)
 		{
-			pageNumber = pageNumber < 1 ? 1 : pageNumber;
-			pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
+			var tag = await tagRepository.GetOrCreateAsync(tagName);
+			tags.Add(tag);
+		}
+		return tags;
+	}
 
-			var projects = await _projectRepository.GetByUserIdAsync(userId, pageNumber, pageSize);
-			var totalCount = await _projectRepository.GetUserTotalCountAsync(userId);
+	private async Task UpdateProjectTags(Project project, List<string> newTagNames)
+	{
+		var currentTagIds = project.ProjectTags.Select(pt => pt.TagId).ToList();
 
-			var projectDtos = _mapper.Map<List<ProjectSummaryDto>>(projects);
-			return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);
+		var allTags = await tagRepository.GetByNamesAsync(newTagNames);
+		var newTags = newTagNames
+			.Where(name => !allTags.Any(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+			.ToList();
+
+		foreach (var tagName in newTags)
+		{
+			var newTag = await tagRepository.GetOrCreateAsync(tagName);
+			allTags = allTags.Append(newTag).ToList();
 		}
 
-		public async Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName)
+		var tagIdsToAdd = allTags
+			.Where(t => !currentTagIds.Contains(t.Id))
+			.Select(t => t.Id)
+			.ToList();
+
+		var tagIdsToRemove = currentTagIds
+			.Where(id => !allTags.Any(t => t.Id == id))
+			.ToList();
+
+		foreach (var tagId in tagIdsToAdd)
 		{
-			var projects = await _projectRepository.GetByTagAsync(tagName);
-			return _mapper.Map<IEnumerable<ProjectSummaryDto>>(projects);
-		}
-
-		public async Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(
-			int pageNumber,
-			int pageSize,
-			string? search = null,
-			List<string> tags = null!)
-		{
-			pageNumber = pageNumber < 1 ? 1 : pageNumber;
-			pageSize = pageSize < 1 ? 10 : (pageSize > 100 ? 100 : pageSize);
-
-			var projects = await _projectRepository.GetPagedListAsync(
-				pageNumber,
-				pageSize,
-				search,
-				tags ?? new List<string>()
-			);
-
-			var totalCount = await _projectRepository.GetTotalCountAsync(search, tags ?? new List<string>());
-
-			var projectDtos = _mapper.Map<List<ProjectSummaryDto>>(projects);
-			return new PaginatedResult<ProjectSummaryDto>(projectDtos, totalCount, pageNumber, pageSize);
-		}
-
-		public async Task<ProjectDto> CreateAsync(CreateProjectDto dto, Guid userId)
-		{
-			await _createValidator.ValidateAndThrowAsync(dto);
-
-			var existing = await _projectRepository.GetByGitHubUrlAsync(dto.GitHubUrl);
-			if (existing != null)
-				throw new InvalidOperationException($"The project with URL {dto.GitHubUrl} already exists");
-
-			var user = await _userRepository.GetByIdAsync(userId)
-				?? throw new KeyNotFoundException($"User with ID {userId} not found");
-
-			var project = new Project(
-				dto.Title,
-				dto.Description,
-				dto.GitHubUrl,
-				dto.DiscordUrl,
-				user.Id
-			);
-
-			var tags = await GetOrCreateTags(dto.Tags);
-			foreach (var tag in tags)
+			var projectTag = new ProjectTag
 			{
-				project.AddTag(tag);
-			}
-
-			await _projectRepository.AddAsync(project);
-
-			return _mapper.Map<ProjectDto>(project);
+				ProjectId = project.Id,
+				TagId = tagId
+			};
+			await tagRepository.AddProjectTagAsync(projectTag);
 		}
 
-		public async Task<ProjectDto> UpdateAsync(Guid id, UpdateProjectDto dto, Guid userId)
+		foreach (var tagId in tagIdsToRemove)
 		{
-			if (!await _projectRepository.ExistsAsync(id))
-				throw new KeyNotFoundException($"Project with ID {id} not found");
+			var projectTag = project.ProjectTags
+				.FirstOrDefault(pt => pt.TagId == tagId);
 
-			if (!await IsOwnerAsync(id, userId))
-				throw new UnauthorizedAccessException("You don't have permission to update this project");
-
-			var project = await _projectRepository.GetByIdAsync(id)
-				?? throw new KeyNotFoundException($"Project with ID {id} not found");
-
-			project.Update(
-				dto.Title ?? project.Title,
-				dto.Description ?? project.Description,
-				!string.IsNullOrWhiteSpace(dto.GitHubUrl) ? new ProjectUrl(dto.GitHubUrl, UrlType.GitHub) : project.GitHubUrl,
-				!string.IsNullOrWhiteSpace(dto.DiscordUrl) ? new ProjectUrl(dto.DiscordUrl, UrlType.Discord) : project.DiscordUrl
-			);
-
-			if (dto.Tags is not null && dto.Tags.Any())
+			if (projectTag != null)
 			{
-				await UpdateProjectTags(project, dto.Tags);
-			}
-
-			await _projectRepository.UpdateAsync(project);
-
-			return _mapper.Map<ProjectDto>(project);
-		}
-
-		public async Task DeleteAsync(Guid id, Guid userId)
-		{
-			if (!await _projectRepository.ExistsAsync(id))
-				throw new KeyNotFoundException($"Project with ID {id} not found");
-
-			if (!await IsOwnerAsync(id, userId))
-				throw new UnauthorizedAccessException("You don't have permission to delete this project");
-
-			var project = await _projectRepository.GetByIdAsync(id)
-				?? throw new KeyNotFoundException($"Project with ID {id} not found");
-
-			await _projectRepository.DeleteAsync(project);
-		}
-
-		public async Task<bool> IsOwnerAsync(Guid projectId, Guid userId)
-		{
-			return await _projectRepository.IsOwnerAsync(projectId, userId);
-		}
-
-		private async Task<List<Tag>> GetOrCreateTags(List<string> tagNames)
-		{
-			var tags = new List<Tag>();
-			foreach (var tagName in tagNames)
-			{
-				var tag = await _tagRepository.GetOrCreateAsync(tagName);
-				tags.Add(tag);
-			}
-			return tags;
-		}
-
-		private async Task UpdateProjectTags(Project project, List<string> newTagNames)
-		{
-			var currentTagIds = project.ProjectTags.Select(pt => pt.TagId).ToList();
-
-			var allTags = await _tagRepository.GetByNamesAsync(newTagNames);
-			var newTags = newTagNames
-				.Where(name => !allTags.Any(t => t.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
-				.ToList();
-
-			foreach (var tagName in newTags)
-			{
-				var newTag = await _tagRepository.GetOrCreateAsync(tagName);
-				allTags = allTags.Append(newTag).ToList();
-			}
-
-			var tagIdsToAdd = allTags
-				.Where(t => !currentTagIds.Contains(t.Id))
-				.Select(t => t.Id)
-				.ToList();
-
-			var tagIdsToRemove = currentTagIds
-				.Where(id => !allTags.Any(t => t.Id == id))
-				.ToList();
-
-			foreach (var tagId in tagIdsToAdd)
-			{
-				var projectTag = new ProjectTag
-				{
-					ProjectId = project.Id,
-					TagId = tagId
-				};
-				await _tagRepository.AddProjectTagAsync(projectTag);
-			}
-
-			foreach (var tagId in tagIdsToRemove)
-			{
-				var projectTag = project.ProjectTags
-					.FirstOrDefault(pt => pt.TagId == tagId);
-
-				if (projectTag != null)
-				{
-					await _tagRepository.RemoveProjectTagAsync(projectTag);
-				}
+				await tagRepository.RemoveProjectTagAsync(projectTag);
 			}
 		}
 	}

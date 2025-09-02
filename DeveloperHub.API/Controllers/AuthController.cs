@@ -4,116 +4,98 @@ using DeveloperHub.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace DeveloperHub.API.Controllers
+namespace DeveloperHub.API.Controllers;
+
+[ApiController]
+[Route("api/auth")]
+public class AuthController(IAuthService authService) : ControllerBase
 {
-	[ApiController]
-	[Route("api/auth")]
-	public class AuthController(IAuthService authService) : ControllerBase
+	private readonly IAuthService _authService = authService;
+
+	[HttpPost("register")]
+	public async Task<IActionResult> Register([FromBody] RegisterDto dto)
 	{
-		private readonly IAuthService _authService = authService;
+		await _authService.RegisterAsync(dto);
+		return Ok(new { message = "Usuario registrado. Revisa tu email para verificar tu cuenta." });
+	}
 
-		[HttpPost("register")]
-		public async Task<IActionResult> Register([FromBody] RegisterDto dto)
-		{
-			try
-			{
-				await _authService.RegisterAsync(dto);
-				return Ok(new { message = "Usuario registrado. Revisa tu email para verificar tu cuenta." });
-			}
-			catch (Exception ex)
-			{
-				return BadRequest(new { message = ex.Message });
-			}
-		}
+	[HttpPost("login")]
+	public async Task<IActionResult> Login([FromBody] LoginDto dto)
+	{
+		var result = await _authService.LoginAsync(dto);
+		return Ok(result);
+	}
 
-		[HttpPost("login")]
-		public async Task<IActionResult> Login([FromBody] LoginDto dto)
-		{
-			var result = await _authService.LoginAsync(dto);
-			return Ok(result);
-		}
+	[HttpGet("me")]
+	[Authorize]
+	public async Task<IActionResult> GetCurrentUser()
+	{
+		var userId = User.GetUserId();
+		var user = await _authService.GetCurrentUserAsync(userId);
+		return Ok(user);
+	}
 
-		[HttpGet("me")]
-		[Authorize]
-		public async Task<IActionResult> GetCurrentUser()
-		{
-			if (User.Identity != null && !User.Identity.IsAuthenticated)
-				return Unauthorized();
+	[HttpPost("forgot-password")]
+	public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
+	{
+		if (!ModelState.IsValid)
+			return BadRequest(ModelState);
 
-			var userId = User.GetUserId();
-			var user = await _authService.GetCurrentUserAsync(userId);
-			return Ok(user);
-		}
+		var result = await _authService.ForgotPasswordAsync(dto.Email);
+		if (!result)
+			return BadRequest(new { message = "No se encontró un usuario con ese email." });
 
-		[HttpPost("forgot-password")]
-		public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto)
-		{
-			if (!ModelState.IsValid)
-				return BadRequest(ModelState);
+		return Ok(new { message = "Si el email está registrado, hemos enviado un enlace de recuperación." });
+	}
 
-			var result = await _authService.ForgotPasswordAsync(dto.Email);
-			if (!result)
-				return BadRequest(new { message = "No se encontró un usuario con ese email." });
+	[HttpPost("reset-password")]
+	public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+	{
+		if (!ModelState.IsValid)
+			return BadRequest(ModelState);
 
-			return Ok(new { message = "Si el email está registrado, hemos enviado un enlace de recuperación." });
-		}
+		var result = await _authService.ResetPasswordAsync(dto.Token, dto.NewPassword);
+		if (!result)
+			return BadRequest(new { message = "El enlace de recuperación no es válido o ha expirado." });
 
-		[HttpPost("reset-password")]
-		public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
-		{
-			if (!ModelState.IsValid)
-				return BadRequest(ModelState);
+		return Ok(new { message = "Tu contraseña ha sido restablecida con éxito." });
+	}
 
-			var result = await _authService.ResetPasswordAsync(dto.Token, dto.NewPassword);
-			if (!result)
-				return BadRequest(new { message = "El enlace de recuperación no es válido o ha expirado." });
+	[HttpPost("change-password")]
+	[Authorize]
+	public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+	{
+		var userId = User.GetUserId();
+		var result = await _authService.ChangePasswordAsync(userId, dto.CurrentPassword, dto.NewPassword);
 
-			return Ok(new { message = "Tu contraseña ha sido restablecida con éxito." });
-		}
+		if (!result)
+			return BadRequest(new { message = "La contraseña actual es incorrecta." });
 
-		[HttpPost("change-password")]
-		[Authorize]
-		public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
-		{
-			var userId = User.GetUserId();
-			var result = await _authService.ChangePasswordAsync(userId, dto.CurrentPassword, dto.NewPassword);
+		return Ok(new { message = "Contraseña actualizada correctamente." });
+	}
 
-			if (!result)
-				return BadRequest(new { message = "La contraseña actual es incorrecta." });
+	[HttpGet("verify-email")]
+	public async Task<IActionResult> VerifyEmail([FromQuery] string token)
+	{
+		if (string.IsNullOrWhiteSpace(token))
+			return BadRequest(new { message = "Token es requerido" });
 
-			return Ok(new { message = "Contraseña actualizada correctamente." });
-		}
+		var success = await _authService.ConfirmEmailAsync(token);
 
-		[HttpGet("verify-email")]
-		public async Task<IActionResult> VerifyEmail([FromQuery] string token)
-		{
-			if (string.IsNullOrWhiteSpace(token))
-				return BadRequest(new { message = "Token es requerido" });
+		if (!success)
+			return BadRequest("Token inválido o expirado.");
 
-			var success = await _authService.ConfirmEmailAsync(token);
+		return Ok("Email confirmado correctamente. Ahora puedes iniciar sesión.");
+	}
 
-			if (!success)
-				return BadRequest("Token inválido o expirado.");
+	[HttpPost("resend-verification")]
+	public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationDto dto)
+	{
+		var success = await _authService.ResendVerificationEmailAsync(dto.Email);
 
-			return Ok("Email confirmado correctamente. Ahora puedes iniciar sesión.");
-		}
+		if (!success)
+			return Ok(new { message = "Si el email está registrado, se reenviará la verificación." });
 
-		[HttpPost("resend-verification")]
-		public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendVerificationDto dto)
-		{
-			try
-			{
-				var success = await _authService.ResendVerificationEmailAsync(dto.Email);
-
-				if (!success)
-					return Ok(new { message = "Si el email está registrado, se reenviará la verificación." });
-
-				return Ok(new { message = "Email de verificación reenviado." });
-			}
-			catch (InvalidOperationException ex)
-			{
-				return BadRequest(new { message = ex.Message });
-			}
-		}
+		return Ok(new { message = "Email de verificación reenviado." });
 	}
 }

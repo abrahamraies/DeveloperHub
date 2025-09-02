@@ -6,7 +6,7 @@ namespace DeveloperHub.Application.Interfaces
 	{
 		Task<ProjectDto?> GetByIdAsync(Guid id);
 		Task<PaginatedResult<ProjectSummaryDto>> GetByUserIdPagedAsync(Guid userId, int pageNumber, int pageSize);
-		Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName);
+		Task<IEnumerable<ProjectSummaryDto>> GetByTagAsync(string tagName, int pageNumber, int pageSize);
 		Task<PaginatedResult<ProjectSummaryDto>> GetPagedAsync(
 			int pageNumber,
 			int pageSize,

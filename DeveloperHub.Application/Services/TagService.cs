@@ -5,86 +5,73 @@ using DeveloperHub.Domain.Entities;
 using DeveloperHub.Domain.Interfaces.Repositories;
 using FluentValidation;
 
-namespace DeveloperHub.Application.Services
+namespace DeveloperHub.Application.Services;
+
+public class TagService(
+	ITagRepository tagRepository,
+	IValidator<CreateTagDto> validator,
+	IMapper mapper
+) : ITagService
 {
-	public class TagService : ITagService
+	public async Task<TagDto> GetByIdAsync(Guid id)
 	{
-		private readonly ITagRepository _tagRepository;
-		private readonly IValidator<CreateTagDto> _validator;
-		private readonly IMapper _mapper;
+		var tag = await tagRepository.GetByIdAsync(id)
+			?? throw new KeyNotFoundException($"Tag with ID {id} not found");
 
-		public TagService
-		(
-			ITagRepository tagRepository,
-			IValidator<CreateTagDto> validator,
-			IMapper mapper
-		)
+		return mapper.Map<TagDto>(tag);
+	}
+
+	public async Task<TagDto> GetByNameAsync(string name)
+	{
+		var tag = await tagRepository.GetByNameAsync(name)
+			?? throw new KeyNotFoundException($"Tag with name '{name}' not found");
+
+		return mapper.Map<TagDto>(tag);
+	}
+
+	public async Task<IEnumerable<TagDto>> GetAllAsync()
+	{
+		var tags = await tagRepository.GetAllAsync();
+		return mapper.Map<IEnumerable<TagDto>>(tags);
+	}
+
+	public async Task<TagDto> CreateAsync(CreateTagDto dto)
+	{
+		await validator.ValidateAndThrowAsync(dto);
+
+		if (await tagRepository.NameExistsAsync(dto.Name))
+			throw new ValidationException("Tag name already exists");
+
+		var tag = new Tag { Name = dto.Name };
+		var createdTag = await tagRepository.AddAsync(tag);
+
+		return mapper.Map<TagDto>(createdTag);
+	}
+
+	public async Task<TagDto> UpdateAsync(Guid id, CreateTagDto dto)
+	{
+		await validator.ValidateAndThrowAsync(dto);
+
+		var tag = await tagRepository.GetByIdAsync(id)
+			?? throw new KeyNotFoundException($"Tag with ID {id} not found");
+
+		if (await tagRepository.NameExistsAsync(dto.Name) &&
+					!tag.Name.Equals(dto.Name, StringComparison.OrdinalIgnoreCase))
 		{
-			_tagRepository = tagRepository;
-			_validator = validator;
-			_mapper = mapper;
+			throw new ValidationException("Tag name already exists");
 		}
 
-		public async Task<TagDto> GetByIdAsync(Guid id)
-		{
-			var tag = await _tagRepository.GetByIdAsync(id)
-				?? throw new KeyNotFoundException($"Tag with ID {id} not found");
+		tag.Name = dto.Name;
+		await tagRepository.UpdateAsync(tag);
 
-			return _mapper.Map<TagDto>(tag);
-		}
+		return mapper.Map<TagDto>(tag);
+	}
 
-		public async Task<TagDto> GetByNameAsync(string name)
-		{
-			var tag = await _tagRepository.GetByNameAsync(name)
-				?? throw new KeyNotFoundException($"Tag with name '{name}' not found");
+	public async Task DeleteAsync(Guid id)
+	{
+		var tag = await tagRepository.GetByIdAsync(id)
+			?? throw new KeyNotFoundException($"Tag with ID {id} not found");
 
-			return _mapper.Map<TagDto>(tag);
-		}
-
-		public async Task<IEnumerable<TagDto>> GetAllAsync()
-		{
-			var tags = await _tagRepository.GetAllAsync();
-			return _mapper.Map<IEnumerable<TagDto>>(tags);
-		}
-
-		public async Task<TagDto> CreateAsync(CreateTagDto dto)
-		{
-			await _validator.ValidateAndThrowAsync(dto);
-
-			if (await _tagRepository.NameExistsAsync(dto.Name))
-				throw new ValidationException("Tag name already exists");
-
-			var tag = new Tag { Name = dto.Name };
-			var createdTag = await _tagRepository.AddAsync(tag);
-
-			return _mapper.Map<TagDto>(createdTag);
-		}
-
-		public async Task<TagDto> UpdateAsync(Guid id, CreateTagDto dto)
-		{
-			await _validator.ValidateAndThrowAsync(dto);
-
-			var tag = await _tagRepository.GetByIdAsync(id)
-				?? throw new KeyNotFoundException($"Tag with ID {id} not found");
-
-			if (await _tagRepository.NameExistsAsync(dto.Name) &&
-						!tag.Name.Equals(dto.Name, StringComparison.OrdinalIgnoreCase))
-			{
-				throw new ValidationException("Tag name already exists");
-			}
-
-			tag.Name = dto.Name;
-			await _tagRepository.UpdateAsync(tag);
-
-			return _mapper.Map<TagDto>(tag);
-		}
-
-		public async Task DeleteAsync(Guid id)
-		{
-			var tag = await _tagRepository.GetByIdAsync(id)
-				?? throw new KeyNotFoundException($"Tag with ID {id} not found");
-
-			await _tagRepository.DeleteAsync(tag);
-		}
+		await tagRepository.DeleteAsync(tag);
 	}
 }

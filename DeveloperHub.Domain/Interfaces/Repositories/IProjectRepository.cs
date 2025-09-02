@@ -6,7 +6,7 @@ namespace DeveloperHub.Domain.Interfaces.Repositories
 	{
 		Task<Project?> GetByIdAsync(Guid id);
 		Task<IEnumerable<Project>> GetByUserIdAsync(Guid userId, int pageNumber, int pageSize);
-		Task<IEnumerable<Project>> GetByTagAsync(string tagName);
+		Task<IEnumerable<Project>> GetByTagAsync(string tagName, int pageNumber, int pageSize);
 		Task<IEnumerable<Project>> GetPagedListAsync(
 			int pageNumber,
 			int pageSize,
@@ -19,7 +19,6 @@ namespace DeveloperHub.Domain.Interfaces.Repositories
 		Task UpdateAsync(Project project);
 		Task<bool> ExistsAsync(Guid id);
 		Task<bool> IsOwnerAsync(Guid projectId, Guid userId);
-		Task<int> GetTotalCountAsync();
 		Task<int> GetUserTotalCountAsync(Guid userId);
 		Task<Project?> GetByGitHubUrlAsync(string githubUrl);
 	}

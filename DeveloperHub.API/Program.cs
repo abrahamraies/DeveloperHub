@@ -6,7 +6,6 @@ using DeveloperHub.Application.Validators;
 using DeveloperHub.Infrastructure;
 using DeveloperHub.Infrastructure.Extensions;
 using DeveloperHub.Infrastructure.Services;
-using DeveloperHub.WebApi.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -102,7 +101,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 // FluentValidation
-builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddValidatorsFromAssemblyContaining<RegisterDtoValidator>();
 
 // SendGrid Email Service
 builder.Services.AddSingleton<IEmailService>(sp =>
@@ -134,11 +133,6 @@ using (var scope = app.Services.CreateScope())
 	var context = services.GetRequiredService<DeveloperHubDbContext>();
 
 	context.Database.Migrate();
-
-	if (app.Environment.IsDevelopment())
-	{
-		await SeedData.InitializeAsync(app.Services);
-	}
 }
 
 app.Run();
