@@ -108,7 +108,8 @@ builder.Services.AddSingleton<IEmailService>(sp =>
 	new SendGridEmailService(
 		builder.Configuration["SendGrid:ApiKey"]!,
 		builder.Configuration["SendGrid:FromEmail"]!,
-		builder.Configuration["SendGrid:FromName"]!
+		builder.Configuration["SendGrid:FromName"]!,
+		builder.Configuration["SendGrid:VerifyEmailUrl"]!
 	)
 );
 
