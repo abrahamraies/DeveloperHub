@@ -9,12 +9,14 @@ namespace DeveloperHub.Infrastructure.Services
 		private readonly string _apiKey;
 		private readonly string _fromEmail;
 		private readonly string _fromName;
+		private readonly string _verificationUrl;
 
-		public SendGridEmailService(string apiKey, string fromEmail, string fromName)
+		public SendGridEmailService(string apiKey, string fromEmail, string fromName, string verificationUrl)
 		{
 			_apiKey = apiKey;
 			_fromEmail = fromEmail;
 			_fromName = fromName;
+			_verificationUrl = verificationUrl;
 		}
 
 		private async Task SendAsync(string to, string subject, string plainText, string htmlContent)
@@ -34,7 +36,7 @@ namespace DeveloperHub.Infrastructure.Services
 
 		public async Task SendVerificationEmail(string to, string token)
 		{
-			var verificationUrl = $"http://localhost:5173/auth/verify-email?token={token}";
+			var verificationUrl = $"{_verificationUrl}{token}";
 
 			var plainText =
 				$"Hola,\n\n" +
